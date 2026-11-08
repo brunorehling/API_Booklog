@@ -1,5 +1,6 @@
 import express from 'express'
 import cors from 'cors'
+import 'dotenv/config'
 
 import routesAutores from './routes/autores'
 import routesLivros from './routes/livros'
@@ -31,5 +32,10 @@ app.use("/admins", routesAdmins)
 app.get('/', (req, res) => {
   res.send('API: Revenda de Veículos')
 })
+
+// Na Vercel o servidor é gerenciado por ela; localmente precisamos subir com listen
+if (!process.env.VERCEL) {
+  app.listen(port, () => console.log(`API rodando em http://localhost:${port}`))
+}
 
 export default app

@@ -5,6 +5,9 @@ import { z } from 'zod'
 const prisma = new PrismaClient()
 const router = Router()
 
+const GOOGLE_URL = "https://www.googleapis.com/books/v1/volumes"
+const GOOGLE_KEY = process.env.GOOGLE_BOOKS_KEY 
+
 const livroSchema = z.object({
   nome: z.string().min(1, "Nome é obrigatório").max(60),
   dataLancamento: z.coerce.date(),
@@ -48,7 +51,6 @@ router.post("/", async (req, res) => {
   const { nome, dataLancamento, foto, descricao, genero = "ACAO", autorNome } = valida.data
 
   try {
-    // Procura o autor pelo nome
     const autor = await prisma.autores.findFirst({ where: { nome: autorNome } })
     if (!autor) return res.status(400).json({ error: "Autor não encontrado" })
 
@@ -142,6 +144,80 @@ router.get("/pesquisa/:termo", async (req, res) => {
     res.status(200).json(livros)
   } catch (error) {
     res.status(500).json({ error: "Erro na pesquisa", details: error })
+  }
+})
+
+function formataLivroGoogle(item: any) {
+  const info = item.volumeInfo ?? {}
+  return {
+    googleId: item.id as string,
+    nome: (info.title ?? "Sem título").slice(0, 255),
+    autor: info.authors?.[0] ?? null,
+    dataLancamento: info.publishedDate ? new Date(info.publishedDate) : null,
+    foto: (info.imageLinks?.thumbnail ?? "").replace("http://", "https://"),
+    descricao: info.description ?? "",
+    paginas: info.pageCount ?? null,
+  }
+}
+
+router.get("/google/:termo", async (req, res) => {
+  const params = new URLSearchParams({
+    q: req.params.termo,
+    maxResults: "20",
+    printType: "books",
+    langRestrict: "pt",
+  })
+  if (GOOGLE_KEY) params.set("key", GOOGLE_KEY)
+
+  try {
+    const resposta = await fetch(`${GOOGLE_URL}?${params}`)
+    if (!resposta.ok) return res.status(502).json({ error: "Erro na Google Books" })
+    const dados: any = await resposta.json()
+    res.status(200).json((dados.items ?? []).map(formataLivroGoogle))
+  } catch (error) {
+    res.status(500).json({ error: "Erro ao buscar na Google Books", details: error })
+  }
+})
+
+router.post("/importar/:googleId", async (req, res) => {
+  const { googleId } = req.params
+
+  try {
+    const existente = await prisma.livros.findUnique({
+      where: { googleId },
+      include: { autor: true },
+    })
+    if (existente) return res.status(200).json(existente)
+
+    const url = `${GOOGLE_URL}/${googleId}${GOOGLE_KEY ? `?key=${GOOGLE_KEY}` : ""}`
+    const resposta = await fetch(url)
+    if (!resposta.ok) return res.status(404).json({ error: "Livro não encontrado na Google" })
+
+    const g = formataLivroGoogle(await resposta.json())
+
+    let autorId: number | null = null
+    if (g.autor) {
+      const nomeAutor = g.autor.slice(0, 100)
+      const autor =
+        (await prisma.autores.findFirst({ where: { nome: nomeAutor } })) ??
+        (await prisma.autores.create({ data: { nome: nomeAutor } }))
+      autorId = autor.id
+    }
+
+    const livro = await prisma.livros.create({
+      data: {
+        googleId: g.googleId,
+        nome: g.nome,
+        dataLancamento: g.dataLancamento,
+        foto: g.foto,
+        descricao: g.descricao.replace(/<[^>]+>/g, ""),
+        autor_id: autorId,
+      },
+      include: { autor: true },
+    })
+    res.status(201).json(livro)
+  } catch (error) {
+    res.status(500).json({ error: "Erro ao importar livro", details: error })
   }
 })
 
