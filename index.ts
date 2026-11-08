@@ -11,6 +11,7 @@ import routesDenuncias from './routes/denuncia'
 import routesDashboard from './routes/dashboard'
 import routesAdminLogin from './routes/adminLogin'
 import routesAdmins from './routes/admins'
+import routesLista from './routes/lista'
 
 const app = express()
 const port = 3000
@@ -27,6 +28,7 @@ app.use("/denuncias", routesDenuncias)
 app.use("/dashboard", routesDashboard)
 app.use("/admins/login", routesAdminLogin)
 app.use("/admins", routesAdmins)
+app.use("/lista", routesLista)
 
 
 app.get('/', (req, res) => {

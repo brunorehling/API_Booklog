@@ -24,6 +24,7 @@ model Usuario {
   @@map("Usuario")
   Comentarios Comentarios[]
   Denuncia Denuncia[]
+  lista      ListaLeitura[]
 }
 
 model Review {
@@ -56,6 +57,7 @@ model Livros {
   autor_id        Int?
   autor           Autores?   @relation(fields: [autor_id], references: [id])
   reviews         Review[]
+  listas          ListaLeitura[]
 
   @@map("livros")
 }
@@ -137,4 +139,25 @@ model Comentarios {
   review      Review?     @relation(fields: [reviewId], references: [id])
   @@map("comentarios")
   Denuncia Denuncia[]
+}
+
+enum StatusLeitura {
+  QUERO_LER
+  LENDO
+  LIDO
+}
+
+model ListaLeitura {
+  id         Int           @id @default(autoincrement())
+  usuarioId  Int
+  livroId    Int
+  status     StatusLeitura @default(QUERO_LER)
+  createdAt  DateTime      @default(now())
+  updatedAt  DateTime      @updatedAt
+
+  usuario    Usuario       @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  livro      Livros        @relation(fields: [livroId], references: [id], onDelete: Cascade)
+
+  @@unique([usuarioId, livroId])
+  @@map("lista_leitura")
 }
