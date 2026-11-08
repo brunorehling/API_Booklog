@@ -45,8 +45,9 @@ model Review {
 
 model Livros {
   id              Int       @id @default(autoincrement())
-  nome            String    @db.VarChar(60)
-  dataLancamento  DateTime
+  googleId        String?       @unique
+  nome            String    @db.VarChar(225)
+  dataLancamento  DateTime?
   foto            String
   descricao       String    @db.VarChar()
   createdAt       DateTime  @default(now())
@@ -61,7 +62,7 @@ model Livros {
 
 model Autores {
   id      Int     @id @default(autoincrement())
-  nome    String  @db.VarChar(45)
+  nome    String  @db.VarChar(100)
   livros  Livros[]
 
   @@map("autores")
